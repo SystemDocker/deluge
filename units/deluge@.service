@@ -1,0 +1,39 @@
+[Unit]
+Description=Deluge BitTorrent Client
+DefaultInstance=default
+Requires=docker.service
+After=docker.service
+
+[Service]
+# Setup the default environment
+Environment='DOCKER_CONTAINER=%p.%i'
+Environment='DOCKER_IMAGE=needo/deluge'
+Environment='DELUGE_CONFIG=/srv/docker/deluge/instance/%i/config'
+Environment='DELUGE_DOWNLOADS=/srv/docker/deluge/intance/%i/downloads'
+
+# Pulling a docker image can take a long time, don't time out.
+TimeoutStartSec=0
+
+# Setup the system
+ExecStartPre=/usr/bin/mkdir -p ${DELUGE_CONFIG}
+ExecStartPre=/usr/bin/chown 99:100 ${DELUGE_CONFIG}
+ExecStartPre=/usr/bin/mkdir -p ${DELUGE_DOWNLOADS}
+ExecStartPre=/usr/bin/chown 99:100 ${DELUGE_DOWNLOADS}
+ExecStartPre=/usr/bin/docker pull ${DOCKER_IMAGE}
+
+# Clean any old containers
+ExecStartPre=-/usr/bin/docker rm ${DOCKER_CONTAINER}
+
+# Start the container
+ExecStart=/usr/bin/bash -c 'docker run --rm --name ${DOCKER_CONTAINER} \
+  ${DOCKER_HOSTNAME} ${DOCKER_NETWORKING} ${DOCKER_PORTMAPS} \
+  ${DOCKER_VOLUMES} \
+  -v=${DELUGE_CONFIG}:/config -v=${DELUGE_DOWNLOADS}:/downloads \
+  -v /etc/localtime:/etc/localtime:ro \
+  ${DOCKER_IMAGE}'
+
+# Stop the container
+ExecStop=-/usr/bin/docker stop ${DOCKER_CONTAINER}
+
+[Install]
+WantedBy=multi-user.target
